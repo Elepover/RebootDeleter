@@ -57,6 +57,15 @@ namespace RebootDeleter {
                 }
                 MessageBox.Show($"Successfully added to context menu.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 Environment.Exit(0);
+            } else if (file == "/unreg") {
+                try {
+                    Registry.ClassesRoot.DeleteSubKeyTree(@"*\shell\DeleteOnReboot");
+                } catch (Exception ex) {
+                    MessageBox.Show($"Unable to remove from context menu: {ex.Message}", default, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Environment.Exit(ex.HResult);
+                }
+                MessageBox.Show($"Successfully removed from context menu.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Environment.Exit(0);
             }
             // detect file existence
             if (!File.Exists(file)) {

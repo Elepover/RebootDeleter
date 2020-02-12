@@ -9,6 +9,8 @@ It's recommended to put the executable to `Program Files` or `Windows` folder.
 
 Delete the specified file.
 
+`filename: the file to delete`
+
 If you don't supply a filename, a open file dialog will pop up for you to choose.
 
 `/reg: Add the option "Delete on Reboot" to the context menu.`

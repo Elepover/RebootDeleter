@@ -147,6 +147,9 @@
   <data name="ErrorContextMenuItemRemoval" xml:space="preserve">
     <value>无法从右键菜单中移除 ({0}): {1}</value>
   </data>
+  <data name="ErrorFileNotFound" xml:space="preserve">
+    <value>文件不存在</value>
+  </data>
   <data name="ErrorUnexpected" xml:space="preserve">
     <value>意外错误 ({0}): {1}</value>
   </data>

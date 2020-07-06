@@ -151,6 +151,15 @@ namespace RebootDeleter.Properties {
         }
         
         /// <summary>
+        ///   查找类似 The file does not exist 的本地化字符串。
+        /// </summary>
+        internal static string ErrorFileNotFound {
+            get {
+                return ResourceManager.GetString("ErrorFileNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Unexpected error ({0}): {1} 的本地化字符串。
         /// </summary>
         internal static string ErrorUnexpected {

@@ -147,6 +147,9 @@
   <data name="ErrorContextMenuItemRemoval" xml:space="preserve">
     <value>Unable to remove from context menu ({0}): {1}</value>
   </data>
+  <data name="ErrorFileNotFound" xml:space="preserve">
+    <value>The file does not exist</value>
+  </data>
   <data name="ErrorUnexpected" xml:space="preserve">
     <value>Unexpected error ({0}): {1}</value>
   </data>

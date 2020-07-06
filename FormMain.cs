@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -43,7 +44,7 @@ namespace RebootDeleter
                 }
                 else
                 {
-                    files.AddRange(Environment.CommandLine.Split(' ').Skip(1));
+                    files.AddRange(Environment.CommandLine.Replace(args[0], "").Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
                 }
 
                 // detect admin rights
@@ -113,6 +114,11 @@ namespace RebootDeleter
                 foreach (var file in files)
                 {
                     if (string.IsNullOrWhiteSpace(file)) continue;
+                    if (!File.Exists(file))
+                    {
+                        deletionFailed.Add(file, new FileNotFoundException(Properties.Strings.ErrorFileNotFound, file));
+                        continue;
+                    }
                     // delete file, will give us win32 exception if anything happens
                     var result = MoveFileExW(file, null, MOVEFILE_DELAY_UNTIL_REBOOT);
                     if (!result)

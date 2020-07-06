@@ -147,6 +147,9 @@
   <data name="ErrorContextMenuItemRemoval" xml:space="preserve">
     <value>コンテキストメニューから削除できません ({0}): {1}</value>
   </data>
+  <data name="ErrorFileNotFound" xml:space="preserve">
+    <value>ファイルは存在しません</value>
+  </data>
   <data name="ErrorUnexpected" xml:space="preserve">
     <value>予期しないエラー ({0}): {1}</value>
   </data>

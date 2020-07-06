@@ -1,116 +1,166 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Globalization;
-using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
+using System.Text;
 using System.Windows.Forms;
-using Microsoft.Win32;
 
-namespace RebootDeleter {
-    public partial class FormMain : Form {
-        public FormMain() {
+namespace RebootDeleter
+{
+    public partial class FormMain : Form
+    {
+        public FormMain()
+        {
             InitializeComponent();
         }
 
-        private void FormMain_Load(object sender, EventArgs e) {
-            try {
+        private void FormMain_Load(object sender, EventArgs e)
+        {
+            try
+            {
                 string[] args = Environment.GetCommandLineArgs();
-                string file;
-                if (args.Length < 2) {
-                    var dialog = new OpenFileDialog() {
+                var files = new List<string>();
+                if (args.Length < 2)
+                {
+                    var dialog = new OpenFileDialog()
+                    {
                         AddExtension = true,
                         AutoUpgradeEnabled = true,
                         CheckFileExists = true,
                         CheckPathExists = true,
-                        FileName = "",
+                        FileName = string.Empty,
                         InitialDirectory = Environment.CurrentDirectory,
-                        Multiselect = false,
-                        Title = "Choose a file to delete"
+                        Multiselect = true,
+                        Title = Properties.Strings.FileChooserTitle
                     };
                     dialog.ShowDialog();
-                    file = dialog.FileName;
-                    if (string.IsNullOrEmpty(file)) Environment.Exit(1223);
-                } else {
-                    file = args[1];
+                    files.AddRange(dialog.FileNames);
+                    if (files.Count == 0) Environment.Exit(1223);
                 }
+                else
+                {
+                    files.AddRange(Environment.CommandLine.Split(' ').Skip(1));
+                }
+
                 // detect admin rights
-                using (WindowsIdentity identity = WindowsIdentity.GetCurrent()) {
+                using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
+                {
                     WindowsPrincipal principal = new WindowsPrincipal(identity);
-                    if (!principal.IsInRole(WindowsBuiltInRole.Administrator)) {
-                        MessageBox.Show("The application must be run under administrative privileges.", default, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    if (!principal.IsInRole(WindowsBuiltInRole.Administrator))
+                    {
+                        MessageBox.Show(Properties.Strings.AdminPermissionRequired, default, MessageBoxButtons.OK, MessageBoxIcon.Error);
                         Environment.Exit(5);
                     }
                 }
                 // detect if user want to add registery key
-                if (file == "/reg") {
-                    try {
-                        using (var rootKey = Registry.ClassesRoot.CreateSubKey(@"*\shell\DeleteOnReboot")) {
+                if (files[0] == "/reg")
+                {
+                    try
+                    {
+                        using (var rootKey = Registry.ClassesRoot.CreateSubKey(@"*\shell\DeleteOnReboot"))
+                        {
                             string name;
-                            if (args.Length >= 3) {
+                            if (args.Length >= 3)
+                            {
                                 name = args[2];
-                            } else {
-                                // check translation
-                                var culture = CultureInfo.CurrentCulture.Parent.Parent;
-                                if (!TranslationsContextMenu.TryGetValue(culture.Name, out name)) {
-                                    // not found, fallback to default
-                                    TranslationsContextMenu.TryGetValue("en", out name);
-                                }
+                            }
+                            else
+                            {
+                                name = Properties.Strings.ContextMenuItem;
                             }
                             rootKey.SetValue("", name);
                             rootKey.SetValue("HasLUAShield", "");
-                            using (var commandKey = rootKey.CreateSubKey("command")) {
+                            using (var commandKey = rootKey.CreateSubKey("command"))
+                            {
                                 commandKey.SetValue("", $"\"{Assembly.GetExecutingAssembly().Location}\" \"%1\"");
                             }
                         }
-                    } catch (Exception ex) {
-                        MessageBox.Show($"Unable to add to context menu (0x{ex.HResult.ToString("X")}): {ex.Message}", default, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(string.Format(Properties.Strings.ErrorContextMenuItemAddition, $"0x{ex.HResult:x}", ex.Message), default, MessageBoxButtons.OK, MessageBoxIcon.Error);
                         Environment.Exit(ex.HResult);
                     }
-                    MessageBox.Show($"Successfully added to context menu.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(Properties.Strings.ContextMenuItemAdditionSuccess, Properties.Strings.Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
                     Environment.Exit(0);
-                } else if (file == "/unreg") {
-                    try {
+                }
+                else if (files[0] == "/unreg")
+                {
+                    try
+                    {
                         Registry.ClassesRoot.DeleteSubKeyTree(@"*\shell\DeleteOnReboot");
-                    } catch (ArgumentException) {
-                        MessageBox.Show("The context menu item has already been removed.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                    catch (ArgumentException)
+                    {
+                        MessageBox.Show(Properties.Strings.ContextMenuItemAlreadyRemoved, Properties.Strings.Warning, MessageBoxButtons.OK, MessageBoxIcon.Information);
                         Environment.Exit(0);
-                    } catch (Exception ex) {
-                        MessageBox.Show($"Unable to remove from context menu (0x{ex.HResult.ToString("X")}): {ex.Message}", default, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(string.Format(Properties.Strings.ErrorContextMenuItemRemoval, $"0x{ex.HResult:x}", ex.Message), Properties.Strings.Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
                         Environment.Exit(ex.HResult);
                     }
-                    MessageBox.Show($"Successfully removed from context menu.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(Properties.Strings.ContextMenuItemRemoved, Properties.Strings.Success, MessageBoxButtons.OK, MessageBoxIcon.Information);
                     Environment.Exit(0);
                 }
-                // detect file existence
-                if (!File.Exists(file)) {
-                    MessageBox.Show("Specified file does not exist.", default, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    Environment.Exit(3);
+
+                var deletionSucceeded = new List<string>();
+                var deletionFailed = new Dictionary<string, Exception>();
+                foreach (var file in files)
+                {
+                    if (string.IsNullOrWhiteSpace(file)) continue;
+                    // delete file, will give us win32 exception if anything happens
+                    var result = MoveFileExW(file, null, MOVEFILE_DELAY_UNTIL_REBOOT);
+                    if (!result)
+                    {
+                        var exc = new Win32Exception(Marshal.GetLastWin32Error());
+                        deletionFailed.Add(file, exc);
+                    }
+                    else
+                    {
+                        deletionSucceeded.Add(file);
+                    }
                 }
-                // delete file
-                var result = MoveFileExW(file, null, MOVEFILE_DELAY_UNTIL_REBOOT);
-                if (!result) {
-                    var exc = new Win32Exception(Marshal.GetLastWin32Error());
-                    MessageBox.Show($"Failed to delete \"{file}\" (0x{exc.HResult.ToString("X")}): {exc.Message}", default, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    Environment.Exit(exc.ErrorCode);
-                } else {
-                    MessageBox.Show($"Successfully scheduled deletion of \"{file}\" on next reboot.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    Environment.Exit(0);
+
+                // compose result
+                var messageBuilder = new StringBuilder();
+
+                if (deletionSucceeded.Count > 0)
+                {
+                    messageBuilder.Append(string.Format(Properties.Strings.DeletionScheduledHeader, deletionSucceeded.Count));
+                    foreach (var file in deletionSucceeded)
+                    {
+                        messageBuilder.Append(Environment.NewLine);
+                        messageBuilder.Append(file);
+                    }
+                    if (deletionFailed.Count > 0)
+                        for (int i = 0; i < 2; i++)
+                            messageBuilder.Append(Environment.NewLine);
                 }
-            } catch (Exception ex) {
-                MessageBox.Show($"Error (0x{ex.HResult.ToString("X")}): {ex.ToString()}", default, MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                if (deletionFailed.Count > 0)
+                {
+                    messageBuilder.Append(string.Format(Properties.Strings.DeletionFailedHeader, deletionFailed.Count));
+                    foreach (var file in deletionFailed)
+                    {
+                        messageBuilder.Append(Environment.NewLine);
+                        messageBuilder.Append($"0x{file.Value.HResult:x} {file.Value.Message}: {file.Key}");
+                    }
+                }
+
+                var message = messageBuilder.ToString();
+                if (!string.IsNullOrEmpty(message)) MessageBox.Show(message, Properties.Strings.Info, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Environment.Exit(deletionFailed.Count > 0 ? 3 : 0);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(string.Format(Properties.Strings.ErrorUnexpected, $"0x{ex.HResult:x}", ex), Properties.Strings.Error, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-        private Dictionary<string, string> TranslationsContextMenu = new Dictionary<string, string>() {
-            {"en", "Delete on &Reboot"},
-            {"zh", "在重启时删除(&R)"},
-            {"zh-Hans", "在重启时删除(&R)"},
-            {"zh-Hant", "在重啓時刪除(&R)"},
-            {"ja", "再起動時に削除(&R)"}
-        };
 
         const uint MOVEFILE_DELAY_UNTIL_REBOOT = 0x4;
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]

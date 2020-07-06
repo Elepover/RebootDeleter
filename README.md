@@ -1,15 +1,16 @@
 # RebootDeleter
+
 Delete your files after system reboot.
 
 # Usage
 
-It's recommended to put the executable to `Program Files` or `Windows` folder.
+It's recommended to put the executable to `Program Files` folder and add to `%PATH%` environment variable.
 
-`RebootDeleter.exe [filename] [/reg [name]|/unreg]`
+`RebootDeleter.exe [[/reg [name]|/unreg]/[file1, file2, ...]]`
 
 Delete the specified file.
 
-`filename: the file to delete`
+`file: the file(s) to delete`
 
 If you don't supply a filename, a open file dialog will pop up for you to choose.
 

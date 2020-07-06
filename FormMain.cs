@@ -44,7 +44,7 @@ namespace RebootDeleter
                 }
                 else
                 {
-                    files.AddRange(Environment.CommandLine.Replace(args[0], "").Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
+                    files.AddRange(args.Skip(1));
                 }
 
                 // detect admin rights
@@ -57,6 +57,7 @@ namespace RebootDeleter
                         Environment.Exit(5);
                     }
                 }
+
                 // detect if user want to add registery key
                 if (files[0] == "/reg")
                 {
